@@ -132,6 +132,30 @@ def validate_azure_blob_auth(azure_blob):
             consts.REQUIRED_AZURE_BLOB_AUTH_HELP,
         )
 
+def validate_oci_repo_auth(oci_repo):
+    if oci_repo.tlsConfig:
+        tlsConfig = oci_repo.tlsConfig
+        if (tlsConfig.client_certificate and not tlsConfig.private_key) or (tlsConfig.private_key and not tlsConfig.client_certificate):
+            raise RequiredArgumentMissingError(
+                consts.REQUIRED_OCI_REPO_TLS_CONFIG_ERROR,
+                consts.REQUIRED_OCI_REPO_TLS_CONFIG_MISSING_HELP,
+            )
+
+    auth_count = 0
+    for auth in [
+        oci_repo.tlsConfig,
+        oci_repo.service_account_name,
+        oci_repo.use_workload_identity,
+        oci_repo.local_auth_ref,
+    ]:
+        if auth:
+            auth_count += 1
+    if auth_count > 1:
+        raise MutuallyExclusiveArgumentError(
+            consts.REQUIRED_OCI_REPO_AUTH_ERROR,
+            consts.REQUIRED_OCI_REPO_AUTH_HELP,
+        )
+
 
 def validate_duration(arg_name: str, duration: str):
     if not duration:
@@ -160,6 +184,12 @@ def validate_bucket_url(url: str):
     if not re.match(consts.VALID_BUCKET_URL_REGEX, url):
         raise InvalidArgumentValueError(
             consts.INVALID_URL_ERROR, consts.INVALID_URL_HELP
+        )
+
+def validate_oci_url(url: str):
+    if not re.match(consts.VALID_OCI_URL_REGEX, url):
+        raise InvalidArgumentValueError(
+            consts.INVALID_URL_ERROR, consts.INVALID_OCI_URL_HELP
         )
 
 

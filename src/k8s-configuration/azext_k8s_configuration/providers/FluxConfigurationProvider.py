@@ -45,9 +45,11 @@ from ..validators import (
     validate_duration,
     validate_private_key,
     validate_url_with_params,
+    validate_oci_url,
+    validate_oci_repo_auth,
 )
 from .. import consts
-from ..vendored_sdks.v2022_07_01.models import (
+from ..vendored_sdks.v2024_04_01_preview.models import (
     FluxConfiguration,
     FluxConfigurationPatch,
     GitRepositoryDefinition,
@@ -59,6 +61,12 @@ from ..vendored_sdks.v2022_07_01.models import (
     ServicePrincipalDefinition,
     ManagedIdentityDefinition,
     RepositoryRefDefinition,
+    OCIRepositoryDefinition,
+    OCIRepositoryPatchDefinition,
+    OCIRepositoryRefDefinition,
+    TlsConfigDefinition,
+    VerifyDefinition,
+    LayerSelectorDefinition,
     KustomizationDefinition,
     KustomizationPatchDefinition,
     SourceKindType,
@@ -166,8 +174,21 @@ def create_config(
     sas_token=None,
     mi_client_id=None,
     cluster_resource_provider=None,
+    digest=None,
+    sa_name=None,
+    use_workload_identity=False,
+    oci_client_cert=None,
+    oci_private_key=None,
+    oci_ca_cert=None,
+    media_type=None,
+    operation=None,
+    oci_insecure=False,
+    verify_provider=None,
+    verify_config=None,
+    match_oidc_identity=None,
 ):
-
+    # Print values
+    print("log stmts:::::::::::::",use_workload_identity, local_auth_ref)
     # Get Resource Provider to call
     cluster_rp, _ = get_cluster_rp_api_version(cluster_type=cluster_type, cluster_rp=cluster_resource_provider)
     validate_cc_registration(cmd)
@@ -204,6 +225,18 @@ def create_config(
         sp_client_secret=sp_client_secret,
         sp_client_cert_send_chain=sp_client_cert_send_chain,
         mi_client_id=mi_client_id,
+        digest=digest,
+        sa_name=sa_name,
+        use_workload_identity=use_workload_identity,
+        oci_client_cert=oci_client_cert,
+        oci_private_key=oci_private_key,
+        oci_ca_cert=oci_ca_cert,
+        media_type=media_type,
+        operation=operation,
+        oci_insecure=oci_insecure,
+        verify_provider=verify_provider,
+        verify_config=verify_config,
+        match_oidc_identity=match_oidc_identity,
     )
 
     # This update func is a generated update function that modifies
@@ -232,6 +265,11 @@ def create_config(
         configuration_protected_settings=protected_settings,
     )
     flux_configuration = update_func(flux_configuration)
+    print("ocirepository::::::",flux_configuration.oci_repository)
+    print("oci ref:::::",flux_configuration.oci_repository.repository_ref)
+    print("oci layer:::::",flux_configuration.oci_repository.layer_selector)
+    print("oci tls:::::",flux_configuration.oci_repository.tls_config)
+    print("oci verify:::::",flux_configuration.oci_repository.verify)
 
     _validate_source_control_config_not_installed(
         cmd, resource_group_name, cluster_rp, cluster_type, cluster_name
@@ -245,16 +283,17 @@ def create_config(
         name,
     )
 
-    return sdk_no_wait(
-        no_wait,
-        client.begin_create_or_update,
-        resource_group_name,
-        cluster_rp,
-        cluster_type,
-        cluster_name,
-        name,
-        flux_configuration,
-    )
+    # return sdk_no_wait(
+    #     no_wait,
+    #     client.begin_create_or_update,
+    #     resource_group_name,
+    #     cluster_rp,
+    #     cluster_type,
+    #     cluster_name,
+    #     name,
+    #     flux_configuration,
+    # )
+    return None
 
 
 def update_config(
@@ -300,6 +339,18 @@ def update_config(
     sas_token=None,
     mi_client_id=None,
     cluster_resource_provider=None,
+    digest=None,
+    sa_name=None,
+    use_workload_identity=False,
+    oci_client_cert=None,
+    oci_private_key=None,
+    oci_ca_cert=None,
+    media_type=None,
+    operation=None,
+    oci_insecure=False,
+    verify_provider=None,
+    verify_config=None,
+    match_oidc_identity=None,
 ):
 
     # Get Resource Provider to call
@@ -343,6 +394,18 @@ def update_config(
         sp_client_secret=sp_client_secret,
         sp_client_cert_send_chain=sp_client_cert_send_chain,
         mi_client_id=mi_client_id,
+        digest=digest,
+        sa_name=sa_name,
+        use_workload_identity=use_workload_identity,
+        oci_client_cert=oci_client_cert,
+        oci_private_key=oci_private_key,
+        oci_ca_cert=oci_ca_cert,
+        media_type=media_type,
+        operation=operation,
+        oci_insecure=oci_insecure,
+        verify_provider=verify_provider,
+        verify_config=verify_config,
+        match_oidc_identity=match_oidc_identity,
     )
 
     # This update func is a generated update function that modifies
@@ -383,16 +446,16 @@ def update_config(
     )
     flux_configuration = update_func(flux_configuration)
 
-    return sdk_no_wait(
-        no_wait,
-        client.begin_update,
-        resource_group_name,
-        cluster_rp,
-        cluster_type,
-        cluster_name,
-        name,
-        flux_configuration,
-    )
+    # return sdk_no_wait(
+    #     no_wait,
+    #     client.begin_update,
+    #     resource_group_name,
+    #     cluster_rp,
+    #     cluster_type,
+    #     cluster_name,
+    #     name,
+    #     flux_configuration,
+    # )
 
 
 def create_kustomization(
@@ -410,6 +473,7 @@ def create_kustomization(
     path="",
     prune=None,
     force=None,
+    wait=True,
     no_wait=False,
     cluster_resource_provider=None,
 ):
@@ -441,6 +505,7 @@ def create_kustomization(
             retry_interval_in_seconds=parse_duration(retry_interval),
             prune=prune,
             force=force,
+            wait=wait,
         )
     }
     flux_configuration_patch = FluxConfigurationPatch(kustomizations=kustomization)
@@ -471,6 +536,7 @@ def update_kustomization(
     path=None,
     prune=None,
     force=None,
+    wait=True,
     no_wait=False,
     cluster_resource_provider=None,
 ):
@@ -502,6 +568,7 @@ def update_kustomization(
             retry_interval_in_seconds=parse_duration(retry_interval),
             prune=prune,
             force=force,
+            wait=wait,
         )
     }
     flux_configuration_patch = FluxConfigurationPatch(kustomizations=kustomization)
@@ -819,7 +886,9 @@ def source_kind_generator_factory(kind=consts.GIT, **kwargs):
         return GitRepositoryGenerator(**kwargs)
     if kind == consts.BUCKET:
         return BucketGenerator(**kwargs)
-    return AzureBlobGenerator(**kwargs)
+    if kind == consts.AZBLOB:
+        return AzureBlobGenerator(**kwargs)
+    return OCIRepositoryGenerator(**kwargs)
 
 
 def convert_to_cli_source_kind(rp_source_kind):
@@ -827,7 +896,9 @@ def convert_to_cli_source_kind(rp_source_kind):
         return consts.GIT
     elif rp_source_kind == consts.BUCKET_CAPS:
         return consts.BUCKET
-    return consts.AZBLOB
+    elif rp_source_kind == consts.AZURE_BLOB:
+        return consts.AZBLOB
+    return consts.OCI
 
 
 class SourceKindGenerator:
@@ -987,6 +1058,7 @@ class GitRepositoryGenerator(SourceKindGenerator):
 
                 config.bucket = BucketPatchDefinition()
                 config.azure_blob = AzureBlobPatchDefinition()
+                config.oci_repository = OCIRepositoryPatchDefinition()
             return config
 
         return git_repository_updater
@@ -1070,6 +1142,7 @@ class BucketGenerator(SourceKindGenerator):
                     config.source_kind = SourceKindType.BUCKET
                     config.git_repository = GitRepositoryPatchDefinition()
                     config.azure_blob = AzureBlobPatchDefinition()
+                    config.oci_repository = OCIRepositoryPatchDefinition()
             return config
 
         return bucket_patch_updater
@@ -1180,9 +1253,156 @@ class AzureBlobGenerator(SourceKindGenerator):
                     config.source_kind = SourceKindType.AZURE_BLOB
                     config.bucket = BucketPatchDefinition()
                     config.git_repository = GitRepositoryPatchDefinition()
+                    config.oci_repository = OCIRepositoryPatchDefinition()
             return config
 
         return azure_blob_patch_updater
+
+class OCIRepositoryGenerator(SourceKindGenerator):
+    def __init__(self, **kwargs):
+        # Common Pre-Validation
+        super().__init__(
+            consts.OCI, consts.OCI_REPO_REQUIRED_PARAMS, consts.OCI_REPO_VALID_PARAMS
+        )
+        super().validate_params(**kwargs)
+
+        # Pre-Validations
+        validate_duration("--timeout", kwargs.get("timeout"))
+        validate_duration("--sync-interval", kwargs.get("sync_interval"))
+
+        self.kwargs = kwargs
+        self.url = kwargs.get("url")
+        self.timeout = kwargs.get("timeout")
+        self.sync_interval = kwargs.get("sync_interval")
+        self.service_account_name = kwargs.get("sa_name")
+        self.use_workload_identity = kwargs.get("use_workload_identity")
+        self.local_auth_ref = kwargs.get("local_auth_ref")
+        self.insecure = kwargs.get("oci_insecure")
+
+        self.verify = None
+        if any(
+            [
+                kwargs.get("verify_config"),
+                kwargs.get("match_oidc_identity"),
+            ]
+        ):
+            if not kwargs.get("verify_provider"):
+                raise RequiredArgumentMissingError(
+                    consts.REQUIRED_VALUES_MISSING_ERROR.format(
+                        "verify-provider", self.kind
+                    ),
+                    consts.REQUIRED_VALUES_MISSING_HELP,
+                )
+            self.verify = VerifyDefinition(
+                provider=kwargs.get("verify_provider"),
+                verification_config=kwargs.get("verify_config"),
+                match_oidc_identity=kwargs.get("match_oidc_identity"),
+            )
+
+        self.repository_ref = None
+        if any(
+            [
+                kwargs.get("tag"),
+                kwargs.get("semver"),
+                kwargs.get("digest"),
+            ]
+        ):
+            self.repository_ref = OCIRepositoryDefinition(
+                tag=kwargs.get("tag"),
+                semver=kwargs.get("semver"),
+                digest=kwargs.get("digest"),
+            )
+        else:
+            self.repository_ref = OCIRepositoryRefDefinition(
+                tag="latest"
+            )
+
+        self.layerSelector = None
+        if kwargs.get("media_type"):
+            if not kwargs.get("operation"):
+                kwargs["operation"] = "extract"
+            self.layerSelector = LayerSelectorDefinition(
+                media_type=kwargs.get("media_type"),
+                operation=kwargs.get("operation"),
+            )
+
+        self.tlsConfig = None
+        if any(
+            [
+                kwargs.get("oci_client_cert"),
+                kwargs.get("oci_private_key"),
+                kwargs.get("oci_ca_cert")
+            ]
+        ):
+            self.tlsConfig = TlsConfigDefinition(
+                client_certificate=kwargs.get("oci_client_cert"),
+                private_key=kwargs.get("oci_private_key"),
+                ca_certificate=kwargs.get("oci_ca_cert")
+            )
+    
+    def validate(self):
+        super().validate_required_params(**self.kwargs)
+        validate_oci_url(self.url)
+        validate_oci_repo_auth(self)
+
+    def generate_update_func(self):
+        """
+        generate_update_func(self) generates a function to add a OCI Repository
+        object to the flux configuration for the PUT case
+        """
+        self.validate()
+
+        def azure_oci_repo_updater(config):
+            config.oci_repository = OCIRepositoryDefinition(
+                url=self.url,
+                timeout_in_seconds=parse_duration(self.timeout),
+                sync_interval_in_seconds=parse_duration(self.sync_interval),
+                repository_ref=self.repository_ref,
+                service_account_name=self.service_account_name,
+                use_workload_identity=self.use_workload_identity,
+                local_auth_ref=self.local_auth_ref,
+                insecure=self.insecure,
+                layer_selector=self.layerSelector,
+                tls_config=self.tlsConfig,
+                verify=self.verify
+            )
+            config.source_kind = SourceKindType.OCI_REPOSITORY
+            return config
+
+        return azure_oci_repo_updater
+
+    def generate_patch_update_func(self, swapped_kind):
+        """
+        generate_patch_update_func(self) generates a function update the AzureBlob
+        object to the flux configuration for the PATCH case.
+        If the source kind has been changed, we also set the GitRepository and Bucket to null
+        """
+
+        def azure_oci_repo_patch_updater(config):
+            if any(kwarg is not None for kwarg in self.kwargs.values()):
+                config.oci_repository = OCIRepositoryPatchDefinition(
+                    url=self.url,
+                    timeout_in_seconds=parse_duration(self.timeout),
+                    sync_interval_in_seconds=parse_duration(self.sync_interval),
+                    repository_ref=self.repository_ref,
+                    service_account_name=self.service_account_name,
+                    use_workload_identity=self.use_workload_identity,
+                    local_auth_ref=self.local_auth_ref,
+                    insecure=self.insecure,
+                    layer_selector=self.layerSelector,
+                    tls_config=self.tlsConfig,
+                    verify=self.verify
+                )
+                if swapped_kind:
+                    self.validate()
+                    config.source_kind = SourceKindType.OCI_REPOSITORY
+                    config.bucket = BucketPatchDefinition()
+                    config.git_repository = GitRepositoryPatchDefinition()
+                    config.azure_blob = AzureBlobPatchDefinition()
+            return config
+
+        return azure_oci_repo_patch_updater
+
 
 
 def get_protected_settings(

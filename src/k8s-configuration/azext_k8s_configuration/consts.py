@@ -65,6 +65,18 @@ REQUIRED_AZURE_BLOB_AUTH_ERROR = (
 REQUIRED_AZURE_BLOB_AUTH_HELP = (
     "Specify one of the available authentication methods from the list: '--local-auth-ref', '--account-key', '--sas-token', '--mi-client-id', or service principal with '--sp-client-id', '--sp-tenant-id', and either '--sp-client-secret' or '--sp-client-cert'"
 )
+REQUIRED_OCI_REPO_AUTH_ERROR = (
+    "Error! Too many authentication methods provided for OCIRepository"
+)
+REQUIRED_OCI_REPO_AUTH_HELP = (
+    "Specify one of the available authentication methods from the list: '--local-auth-ref', '--service-account-name', '--use_workload_identity', or tlsConfig with '--oci_client_cert' and '--oci_private_key' or '--oci_ca_cert'"
+)
+REQUIRED_OCI_REPO_TLS_CONFIG_ERROR = (
+    "Error! TLS config provided is invalid for OCIRepository"
+)
+REQUIRED_OCI_REPO_TLS_CONFIG_MISSING_HELP = (
+    "Provide '--oci-client-cert' with the '--oci-private-key'"
+)
 EXTRA_VALUES_PROVIDED_ERROR = (
     "Error! Invalid properties [{}] were specified for kind '{}'"
 )
@@ -76,6 +88,9 @@ INVALID_DURATION_HELP = "Specify a valid Go duration and try again (i.e. 1h2m5s)
 INVALID_URL_ERROR = "Error! Invalid --url."
 INVALID_URL_HELP = (
     "Url must begin with one of ['http://', 'https://', 'git@', 'ssh://']"
+)
+INVALID_OCI_URL_HELP = (
+    "Url must begin with 'oci://'"
 )
 
 INVALID_KUBERNETES_NAME_LENGTH_ERROR = "Error! Invalid {0}"
@@ -254,6 +269,28 @@ AZUREBLOB_VALID_PARAMS = {
     "mi_client_id",
 }
 
+OCI_REPO_REQUIRED_PARAMS = {"url"}
+OCI_REPO_VALID_PARAMS = {
+    "url",
+    "sync_interval",
+    "timeout",
+    "oci_tag",
+    "oci_semver",
+    "oci_digest",
+    "sa_name",
+    "local_auth_ref",
+    "use_workload_identity",
+    "oci_client_cert",
+    "oci_private_key",
+    "oci_ca_cert",
+    "media_type",
+    "operation",
+    "oci_insecure",
+    "verify_provider",
+    "verify_config",
+    "match_oidc_identity",
+}
+
 DEPENDENCY_KEYS = ["dependencies", "depends_on", "dependsOn", "depends"]
 SYNC_INTERVAL_KEYS = ["interval", "sync_interval", "syncInterval"]
 RETRY_INTERVAL_KEYS = ["retryInterval", "retry_interval"]
@@ -264,6 +301,7 @@ VALID_DURATION_REGEX = r"((?P<hours>\d+?)h)?((?P<minutes>\d+?)m)?((?P<seconds>\d
 VALID_GIT_URL_REGEX = r"^(((http|https|ssh)://)|(git@))"
 VALID_BUCKET_URL_REGEX = r"^(((http|https)://))"
 VALID_AZUREBLOB_URL_REGEX = r"^(((http|https)://))"
+VALID_OCI_URL_REGEX = r"^oci://.*$"
 
 VALID_KUBERNETES_DNS_SUBDOMAIN_NAME_REGEX = r"^[a-z0-9]([\.\-a-z0-9]*[a-z0-9])?$"
 VALID_KUBERNETES_DNS_NAME_REGEX = r"^[a-z0-9]([\-a-z0-9]*[a-z0-9])?$"
@@ -272,6 +310,7 @@ GIT = "git"
 BUCKET = "bucket"
 BUCKET_CAPS = "Bucket"
 AZBLOB = "azblob"
+OCI = "oci"
 AZURE_BLOB = "AzureBlob"
 GIT_REPOSITORY = "GitRepository"
 
