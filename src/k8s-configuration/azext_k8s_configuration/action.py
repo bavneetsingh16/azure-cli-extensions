@@ -6,7 +6,7 @@
 
 import argparse
 from azure.cli.core.azclierror import InvalidArgumentValueError
-from .vendored_sdks.v2022_03_01.models import (
+from .vendored_sdks.v2024_04_01_preview.models import (
     KustomizationDefinition,
     KustomizationPatchDefinition,
 )
@@ -71,3 +71,38 @@ class KustomizationAddAction(argparse._AppendAction):
             ),
             option_string,
         )
+
+class AddVerificationConfigSettings(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        settings = {}
+        for item in values:
+            try:
+                key, value = item.split('=', 1)
+                settings[key] = value
+            except ValueError as ex:
+                raise InvalidArgumentValueError('Usage error: {} verification_config_key=verification_config_value'.
+                                         format(option_string)) from ex
+        setattr(namespace, self.dest, settings)
+
+class AddMatchOidcIdentitySettings(argparse._AppendAction):
+    def __call__(self, parser, namespace, values, option_string=None):
+        settings = getattr(namespace, self.dest, None)
+        if settings is None:
+            settings = []
+        valid_keys = ['issuer', 'subject']
+        if len(values) % 2 != 0:
+            raise InvalidArgumentValueError('Each "issuer" should have a corresponding "subject".')
+        for i in range(0, len(values), 2):
+            identityDict = {}
+            for j in range(i, i+2):
+                try:
+                    key, value = values[j].split('=', 1)
+                    if key not in valid_keys:
+                        raise InvalidArgumentValueError('Invalid key: {}. Only "issuer" and "subject" are allowed for matchOidcIdentity.'.
+                                                        format(key))
+                    identityDict[key] = value
+                except ValueError as ex:
+                    raise InvalidArgumentValueError('Usage error: {} match_oidc_identity_key=match_oidc_identity_value'.
+                                                    format(option_string)) from ex
+            settings.append(identityDict)
+        setattr(namespace, self.dest, settings)

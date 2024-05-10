@@ -21,6 +21,8 @@ from .validators import (
 
 from .action import (
     KustomizationAddAction,
+    AddVerificationConfigSettings,
+    AddMatchOidcIdentitySettings,
 )
 from . import consts
 
@@ -67,7 +69,7 @@ def load_arguments(self, _):
         )
         c.argument(
             "kind",
-            arg_type=get_enum_type([consts.GIT, consts.BUCKET, consts.AZBLOB]),
+            arg_type=get_enum_type([consts.GIT, consts.BUCKET, consts.AZBLOB, consts.OCI]),
             help="Source kind to reconcile",
         )
         c.argument(
@@ -89,12 +91,12 @@ def load_arguments(self, _):
         c.argument(
             "tag",
             arg_group="Git Repo Ref",
-            help="Tag within the git source to reconcile with the cluster",
+            help="Tag within the git or oci source to reconcile with the cluster",
         )
         c.argument(
             "semver",
             arg_group="Git Repo Ref",
-            help="Semver range within the git source to reconcile with the cluster",
+            help="Semver range within the git or oci source to reconcile with the cluster",
         )
         c.argument(
             "commit",
@@ -234,6 +236,79 @@ def load_arguments(self, _):
             options_list=["--mi-client-id", "--managed-identity-client-id"],
             help="The client ID of the managed identity for authentication with Azure Blob",
         )
+        c.argument(
+            "digest",
+            arg_group="OCI Repo Ref",
+            help="The image digest to pull from OCI repository, the value should be in the format ‘sha256:’",
+        )
+        c.argument(
+            "sa_name",
+            arg_group="OCI Repo Auth",
+            options_list=["--sa-name", "--service-account-name"],
+            help="The service account name to authenticate with the OCI repository",
+        )
+        c.argument(
+            "use_workload_identity",
+            arg_group="OCI Repo Auth",
+            arg_type=get_three_state_flag(),
+            help="Specifies whether to use Workload Identity to authenticate with the OCI repository",
+        )
+        c.argument(
+            "oci_client_cert",
+            arg_group="OCI Repo Auth",
+            options_list=["--oci-client-cert"],
+            help="Base64-encoded certificate used to authenticate a client with the OCI repository",
+        )
+        c.argument(
+            "oci_private_key",
+            arg_group="OCI Repo Auth",
+            options_list=["--oci-private-key"],
+            help="Base64-encoded private key used to authenticate a client with the OCI repository",
+        )
+        c.argument(
+            "oci_ca_cert",
+            arg_group="OCI Repo Auth",
+            options_list=["--oci-ca-cert"],
+            help="Base64-encoded CA certificate used to verify the server",
+        )
+        c.argument(
+            "media_type",
+            options_list=["--media-type", "-mt"],
+            arg_group="OCI Layer Selector",
+            help="The first layer matching the specified media type will be used",
+        )
+        c.argument(
+            "ls_operation",
+            options_list=["--operation", "-op"],
+            arg_group="OCI Layer Selector",
+            arg_type=get_enum_type(["extract", "copy"]),
+            default="extract",
+            help="The operation to be performed on the selected layer",
+        )
+        c.argument(
+            "oci_insecure",
+            arg_type=get_three_state_flag(),
+            help="Specify whether to allow connecting to a non-TLS HTTP container registry",
+        )
+        c.argument(
+            "verify_provider",
+            options_list=["--verify-provider", "--vp"],
+            arg_group="OCI Verify",
+            arg_type=get_enum_type(["cosign", "notation"]),
+            help="Verification provider name",
+        )
+        c.argument('verify_config',
+            options_list=['--verification-config', '--verify-config'],
+            action=AddVerificationConfigSettings,
+            arg_group="OCI Verify",
+            nargs='+',
+            help='Configuration Settings as key=value pair.  Repeat parameter for each setting. Do not use this for secrets, as this value is returned in response.')
+        c.argument('match_oidc_identity',
+           options_list=['--match-oidc-identity'],
+           action=AddMatchOidcIdentitySettings,
+           arg_group="OCI Verify",
+           nargs='+',
+           help='OIDC Identity Settings as key=value pair. Repeat parameter for each setting.')
 
     with self.argument_context("k8s-configuration flux update") as c:
         c.argument(
@@ -399,6 +474,12 @@ def load_arguments(self, _):
         c.argument(
             "force",
             arg_type=get_three_state_flag(),
+            help="Re-create resources that cannot be updated on the cluster (i.e. jobs)",
+        )
+        c.argument(
+            "wait",
+            arg_type=get_three_state_flag(),
+            default=True,
             help="Re-create resources that cannot be updated on the cluster (i.e. jobs)",
         )
 
