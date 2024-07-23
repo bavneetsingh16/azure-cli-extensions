@@ -945,28 +945,15 @@ def generate_request_payload(location, public_key, tags, kubernetes_distro, kube
         infrastructure=kubernetes_infra
     )
 
-    # Initialize additional parameters
-    additional_params = {}
-
-    if enable_private_link is not None:
-        additional_params['private_link_state'] = "Enabled" if enable_private_link else "Disabled"
-    if private_link_scope_resource_id is not None:
-        additional_params['private_link_scope_resource_id'] = private_link_scope_resource_id
-    if distribution_version is not None:
-        additional_params['distribution_version'] = distribution_version
-    if azure_hybrid_benefit is not None:
-        additional_params['azure_hybrid_benefit'] = azure_hybrid_benefit
-    if enable_oidc_issuer:
-        additional_params['oidc_issuer_profile'] = set_oidc_issuer_profile(enable_oidc_issuer, self_hosted_issuer)
-    if enable_workload_identity:
-        additional_params['security_profile'] = set_security_profile(enable_workload_identity)
-    if gateway is not None:
-        additional_params['gateway'] = gateway
-    if arc_agent_configurations is not None:
-        additional_params['arc_agent_configurations'] = arc_agent_configurations
-
-    # If there are additional parameters, create a ConnectedCluster2024_07_01_Preview object
-    if additional_params:
+    if enable_private_link is not None or distribution_version is not None or azure_hybrid_benefit is not None or enable_oidc_issuer or enable_workload_identity or gateway is not None or arc_agent_configurations is not None:
+        #Set additional parameters
+        private_link_state = None
+        if enable_private_link is not None:
+            private_link_state = "Enabled" if enable_private_link is True else "Disabled"
+        
+        oidc_profile = set_oidc_issuer_profile(enable_oidc_issuer, self_hosted_issuer)
+        security_profile = set_security_profile(enable_workload_identity)
+        
         cc = ConnectedCluster2024_07_01_Preview(
             location=location,
             identity=identity,
@@ -974,18 +961,27 @@ def generate_request_payload(location, public_key, tags, kubernetes_distro, kube
             tags=tags,
             distribution=kubernetes_distro,
             infrastructure=kubernetes_infra,
-            **additional_params
+            private_link_scope_resource_id=private_link_scope_resource_id,
+            private_link_state=private_link_state,
+            azure_hybrid_benefit=azure_hybrid_benefit,
+            distribution_version=distribution_version,
+            oidc_issuer_profile=oidc_profile,
+            security_profile=security_profile,
+            gateway=gateway,
+            arc_agent_configurations=arc_agent_configurations
         )
 
     return cc
 
 
-def generate_reput_request_payload(cc, enable_oidc_issuer, enable_workload_identity, self_hosted_issuer):
+def generate_reput_request_payload(cc, enable_oidc_issuer, enable_workload_identity, self_hosted_issuer, gateway, arc_agent_configurations):
     # Update connected cluster resource object
     oidc_profile = set_oidc_issuer_profile(enable_oidc_issuer, self_hosted_issuer)
     security_profile = set_security_profile(enable_workload_identity)
     cc.oidc_issuer_profile = oidc_profile
     cc.security_profile = security_profile
+    cc.gateway = gateway
+    cc.arc_agent_configurations = arc_agent_configurations
     return cc
 
 
@@ -1229,7 +1225,8 @@ def update_connected_cluster(cmd, client, resource_group_name, cluster_name, htt
                              disable_proxy=False, kube_config=None, kube_context=None, auto_upgrade=None, tags=None,
                              distribution=None, distribution_version=None, azure_hybrid_benefit=None, skip_ssl_verification=False, yes=False, 
                              container_log_path=None, enable_oidc_issuer=None, enable_workload_identity=None, self_hosted_issuer="",
-                             disable_workload_identity=None):
+                             disable_workload_identity=None, enable_gateway=False, gateway_resource_id="", disable_gateway=False, 
+                             configuration_settings=None, configuration_protected_settings=None):
 
     # Prompt for confirmation for few parameters
     if azure_hybrid_benefit == "True":
@@ -1241,6 +1238,12 @@ def update_connected_cluster(cmd, client, resource_group_name, cluster_name, htt
         raise InvalidArgumentValueError("Do not specify both enable-workload-identity and disable-workload-identity at the same time.")
     if disable_workload_identity == True:
         enable_workload_identity = False
+
+    # Validation for the gateway parameter
+    if enable_gateway and disable_gateway:
+        raise InvalidArgumentValueError("Do not specify both enable-gateway and disable-gateway at the same time.")
+    if enable_gateway and gateway_resource_id == "":
+        raise RequiredArgumentMissingError("gateway-resource-id is required when enable-gateway is specified.")
 
     # Send cloud information to telemetry
     send_cloud_telemetry(cmd)
@@ -1264,6 +1267,11 @@ def update_connected_cluster(cmd, client, resource_group_name, cluster_name, htt
         raise InvalidArgumentValueError(str.format(consts.Proxy_Cert_Path_Does_Not_Exist_Error, proxy_cert))
 
     proxy_cert = proxy_cert.replace('\\', r'\\\\')
+
+    configuration_settings, configuration_protected_settings, protected_helm_values = utils.add_config_protected_settings(http_proxy, https_proxy, no_proxy, proxy_cert, container_log_path, configuration_settings, configuration_protected_settings)
+    arc_agent_configurations = None
+    if configuration_protected_settings is not None or configuration_settings is not None:
+        arc_agent_configurations = generate_arc_agent_configuration(configuration_settings, configuration_protected_settings)
 
     # Fetch Connected Cluster for agent version
     connected_cluster = get_connectedk8s_2024_07_01(cmd, resource_group_name, cluster_name)
@@ -1330,10 +1338,22 @@ def update_connected_cluster(cmd, client, resource_group_name, cluster_name, htt
         kubernetes_properties['Context.Default.AzureCLI.KubernetesInfra'] = kubernetes_infra
 
     telemetry.add_extension_event('connectedk8s', kubernetes_properties)
+
+    # If gateway is enabled
+    gateway = None
+    if enable_gateway:
+        gateway = Gateway(
+            enabled=True,
+            resource_id=gateway_resource_id
+        )
+    if disable_gateway:
+        gateway = Gateway(
+            enabled=False
+        )
     
     # Get the connected cluster resource using latest api version and generate reput request payload
     connected_cluster = get_connectedk8s_2024_07_01(cmd, resource_group_name, cluster_name)
-    cc = generate_reput_request_payload(connected_cluster, enable_oidc_issuer, enable_workload_identity, self_hosted_issuer)
+    cc = generate_reput_request_payload(connected_cluster, enable_oidc_issuer, enable_workload_identity, self_hosted_issuer, gateway, arc_agent_configurations)
 
     # Update connected cluster resource
     reput_cc_response = create_cc_resource(client, resource_group_name, cluster_name, cc, False)
@@ -1345,12 +1365,24 @@ def update_connected_cluster(cmd, client, resource_group_name, cluster_name, htt
 
     config_dp_endpoint, release_train = get_config_dp_endpoint(cmd, connected_cluster.location, values_file)
 
-    # Retrieving Helm chart OCI Artifact location
-    registry_path = os.getenv('HELMREGISTRY') if os.getenv(
-        'HELMREGISTRY') else utils.get_helm_registry(cmd, config_dp_endpoint, release_train)
+    # Perform DP health check
+    _ = utils.health_check_dp(cmd, config_dp_endpoint)
 
+    # Retrieving Helm chart OCI Artifact location
+    helm_values_dp = utils.get_helm_values(cmd, config_dp_endpoint, release_train, request_body=json.dumps(result))
+
+    registry_path = os.getenv('HELMREGISTRY') if os.getenv('HELMREGISTRY') else \
+        helm_values_dp["repositoryPath"]
+
+    # Get azure-arc agent version for telemetry
     reg_path_array = registry_path.split(':')
     agent_version = reg_path_array[1]
+    
+    helm_content_values = helm_values_dp["helmValuesContent"]
+
+    # Substitute any protected helm values as the value for that will be null
+    for helm_parameter, helm_value in protected_helm_values.items():
+        helm_content_values[helm_parameter] = helm_value
 
     # Set agent version in registry path
     if connected_cluster.agent_version is not None:
@@ -1383,26 +1415,10 @@ def update_connected_cluster(cmd, client, resource_group_name, cluster_name, htt
 
     cmd_helm_upgrade = [helm_client_location, "upgrade", "azure-arc", chart_path, "--namespace", release_namespace,
                         "-f", user_values_location, "--wait", "--output", "json"]
+    # Add helmValues content response from DP
+    cmd_helm_upgrade = utils.parse_helm_values(helm_content_values, cmd_helm=cmd_helm_upgrade)
     if values_file:
         cmd_helm_upgrade.extend(["-f", values_file])
-    if auto_upgrade is not None:
-        cmd_helm_upgrade.extend(["--set", "systemDefaultValues.azureArcAgents.autoUpdate={}".format(auto_upgrade)])
-    if https_proxy:
-        cmd_helm_upgrade.extend(["--set", "global.httpsProxy={}".format(https_proxy)])
-    if http_proxy:
-        cmd_helm_upgrade.extend(["--set", "global.httpProxy={}".format(http_proxy)])
-    if no_proxy:
-        cmd_helm_upgrade.extend(["--set", "global.noProxy={}".format(no_proxy)])
-    if https_proxy or http_proxy or no_proxy:
-        cmd_helm_upgrade.extend(["--set", "global.isProxyEnabled={}".format(True)])
-    if disable_proxy:
-        cmd_helm_upgrade.extend(["--set", "global.isProxyEnabled={}".format(False)])
-    if proxy_cert:
-        cmd_helm_upgrade.extend(["--set-file", "global.proxyCert={}".format(proxy_cert)])
-        cmd_helm_upgrade.extend(["--set", "global.isCustomCert={}".format(True)])
-    if container_log_path is not None:
-        cmd_helm_upgrade.extend(
-            ["--set", "systemDefaultValues.fluent-bit.containerLogPath={}".format(container_log_path)])
     if kube_config:
         cmd_helm_upgrade.extend(["--kubeconfig", kube_config])
     if kube_context:

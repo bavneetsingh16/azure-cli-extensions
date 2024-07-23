@@ -623,7 +623,7 @@ def helm_install_release(resource_manager, chart_path, kubernetes_distro, kubern
             logger.debug("'arcConfigEndpoint' doesn't exist under 'dataplaneEndpoints' in the ARM metadata.")
 
     # Add helmValues content response from DP
-    cmd_helm_install = parse_helm_values(cmd_helm_install,  helm_content_values)
+    cmd_helm_install = parse_helm_values(helm_content_values, cmd_helm=cmd_helm_install)
 
     # Add custom-locations related params
     if enable_custom_locations and not enable_private_link:
@@ -857,11 +857,11 @@ def add_config_protected_settings(https_proxy, http_proxy, no_proxy, proxy_cert,
             protected_helm_values["global.proxyCert"] = proxy_cert
     return configuration_settings, configuration_protected_settings, protected_helm_values
 
-def parse_helm_values(cmd_helm_install, helm_content_values):
+def parse_helm_values(helm_content_values, cmd_helm):
     for helm_param, helm_value in helm_content_values.items():
         if helm_param == "global.proxyCert":
-            cmd_helm_install.extend(["--set-file", "{}={}".format(helm_param, helm_value)])
+            cmd_helm.extend(["--set-file", "{}={}".format(helm_param, helm_value)])
             continue
-        cmd_helm_install.extend(["--set", "{}={}".format(helm_param, helm_value)])
+        cmd_helm.extend(["--set", "{}={}".format(helm_param, helm_value)])
     
-    return cmd_helm_install
+    return cmd_helm
