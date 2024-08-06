@@ -533,19 +533,19 @@ def create_connectedk8s(cmd, client, resource_group_name, cluster_name, correlat
         - If workload identity is enabled, extension is installed, poll for agent state.
     """
     if (enable_oidc_issuer and self_hosted_issuer == "") or enable_workload_identity:
-        print("Step: {}: Wait for Agent State to reach terminal state, with timeout of {}".format(utils.get_utctimestring(), 
+        print("Step: {}: Wait for Agent State to reach terminal state, with timeout of {}".format(utils.get_utctimestring(),
                                                                                                 consts.Agent_State_Timeout))
         if poll_for_agent_state(cmd, resource_group_name, cluster_name):
             connected_cluster = get_connectedk8s_2024_07_01(cmd, resource_group_name, cluster_name)
-            print("Step: {}: Agent state has reached terminal state of {}.".format(utils.get_utctimestring(), 
+            print("Step: {}: Agent state has reached terminal state of {}.".format(utils.get_utctimestring(),
                                                                                 connected_cluster.arc_agent_profile.agent_state))
         else:
             raise CLIInternalError("Timed out waiting for Agent State to reach terminal state.")
-    
+
     return put_cc_response
 
 
-def poll_for_agent_state(cmd, resource_group_name, cluster_name, timeout_minutes=consts.Agent_State_Timeout, 
+def poll_for_agent_state(cmd, resource_group_name, cluster_name, timeout_minutes=consts.Agent_State_Timeout,
                         interval=5):
     start_time = time.time()
     while True:
@@ -957,10 +957,12 @@ def generate_request_payload(location, public_key, tags, kubernetes_distro, kube
         private_link_state = None
         if enable_private_link is not None:
             private_link_state = "Enabled" if enable_private_link is True else "Disabled"
-        
+
         # Set OIDC and Security profile
+        oidc_issuer = None
         if enable_oidc_issuer:
             oidc_issuer = set_oidc_issuer_profile(enable_oidc_issuer, self_hosted_issuer)
+        security = None
         if enable_workload_identity:
             security = set_security_profile(enable_workload_identity)
 
@@ -998,7 +1000,7 @@ def generate_reput_request_payload(cc, enable_oidc_issuer, enable_workload_ident
 
     if arc_agentry_configurations is not None:
         cc.arc_agentry_configurations = arc_agentry_configurations
-    
+
     if arc_agent_profile is not None:
         cc.arc_agent_profile = arc_agent_profile
 
@@ -1486,11 +1488,11 @@ def update_connected_cluster(cmd, client, resource_group_name, cluster_name, htt
         - If workload identity is enabled, extension is installed, poll for agent state.
     """
     if (enable_oidc_issuer and self_hosted_issuer == "") or enable_workload_identity:
-        print("Step: {}: Wait for Agent State to reach terminal state, with timeout of {}".format(utils.get_utctimestring(), 
+        print("Step: {}: Wait for Agent State to reach terminal state, with timeout of {}".format(utils.get_utctimestring(),
                                                                                                 consts.Agent_State_Timeout))
         if poll_for_agent_state(cmd, resource_group_name, cluster_name):
             connected_cluster = get_connectedk8s_2024_07_01(cmd, resource_group_name, cluster_name)
-            print("Step: {}: Agent state has reached terminal state of {}.".format(utils.get_utctimestring(), 
+            print("Step: {}: Agent state has reached terminal state of {}.".format(utils.get_utctimestring(),
                                                                                 connected_cluster.arc_agent_profile.agent_state))
         else:
             raise CLIInternalError("Timed out waiting for Agent State to reach terminal state.")
@@ -2937,7 +2939,7 @@ def add_config_protected_settings(https_proxy, http_proxy, no_proxy, proxy_cert,
     # Initialize configuration_protected_settings if it is None
     if configuration_protected_settings is None:
         configuration_protected_settings = {}
-    
+
     if configuration_settings is None:
         configuration_settings = {}
 
